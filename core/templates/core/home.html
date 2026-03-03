@@ -1,0 +1,634 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block content %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<!-- HERO: full-width hero with campus background -->
+<section class="hero-hero">
+  <div class="hero-overlay"></div>
+
+  <div class="hero-inner">
+    <div class="hero-headline">
+      <h1>Smart Campus Navigation System</h1>
+      <p class="hero-sub">Navigate your campus smarter with real-time indoor mapping and AI assistance</p>
+
+      <div class="hero-cta">
+        <a class="btn primary" href="#map-section">Start Navigation</a>
+        <a class="btn secondary" href="/assistant/">Ask AI Assistant</a>
+      </div>
+    </div>
+
+    <!-- three stat cards -->
+    <div class="hero-cards">
+      <div class="stat-card">
+        <div class="stat-left">
+          <div class="stat-value">26</div>
+          <div class="stat-label">Total Locations</div>
+        </div>
+        <div class="stat-icon">🏫</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-left">
+          <div class="stat-value">27</div>
+          <div class="stat-label">Navigation Paths</div>
+        </div>
+        <div class="stat-icon">🧭</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-left">
+          <div class="stat-value">15</div>
+          <div class="stat-label">Key Facilities</div>
+        </div>
+        <div class="stat-icon">📍</div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- /HERO -->
+
+
+<!-- 1. Indoor Navigation Section -->
+<section id="route-panel" class="route-panel">
+  <div class="route-panel-inner">
+    <div class="route-head">
+      <div class="route-title">
+        <!-- small icon (svg) + title -->
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="route-icon" aria-hidden>
+          <path d="M3 12h4l3 8 4-16 3 8h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <h3>Find Your Route</h3>
+          <p class="muted">Select start & destination to find the optimal path</p>
+        </div>
+      </div>
+
+      <div class="route-actions">
+        <label class="sr-only" for="start-node">Start</label>
+        <select id="start-node" class="fancy-select">
+          <option value="">Select start location</option>
+        </select>
+
+        <label class="sr-only" for="end-node">End</label>
+        <select id="end-node" class="fancy-select">
+          <option value="">Select destination</option>
+        </select>
+
+        <button id="btn-show-route" class="btn primary btn-large">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M3 12h14M14 5l7 7-7 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Find Route
+        </button>
+      </div>
+    </div>
+    <div id="route-info" class="route-info-box"></div>
+
+    <!-- map preview container (your existing canvas goes inside) -->
+    <div class="route-map-card">
+      <div class="map-legend">
+        <div class="legend-item"><span class="legend-pin home"></span> Entry</div>
+        <div class="legend-item"><span class="legend-pin poi"></span> Facility</div>
+        <div class="legend-item"><span class="legend-pin lift"></span> Lift / Stairs</div>
+      </div>
+      
+
+
+      <!-- keep your canvas here -->
+      <div class="map-wrap">
+        <!-- canvas / map element already in your template -->
+        <canvas id="indoor-map" width="1100" height="700">Your browser does not support canvas.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="ai-box">
+  <input id="ai-input" placeholder="Ask NaviQ…" />
+  <button id="ai-ask-btn">Ask</button>
+  <p id="ai-answer"></p>
+</div>
+</section>
+          
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startSelect = document.getElementById('start-node');
+    const endSelect = document.getElementById('end-node');
+    const showRouteBtn = document.getElementById('btn-show-route');
+    const routeInfoDiv = document.getElementById('route-info');
+    const canvas = document.getElementById('indoor-map');
+    const ctx = canvas.getContext('2d');
+
+    // storage
+    let locations = [];            // array of {id,name,code,x,y,floor}
+    let locationsMap = {};         // id -> location
+    let bounds = null;             // {minX,maxX,minY,maxY}
+
+    // helper: compute bounding box
+    function computeBounds() {
+        if (!locations.length) return null;
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        locations.forEach(l => {
+            if (l.x < minX) minX = l.x;
+            if (l.x > maxX) maxX = l.x;
+            if (l.y < minY) minY = l.y;
+            if (l.y > maxY) maxY = l.y;
+        });
+        // add small padding
+        const padX = (maxX - minX) * 0.08 || 20;
+        const padY = (maxY - minY) * 0.08 || 20;
+        return {minX: minX - padX, maxX: maxX + padX, minY: minY - padY, maxY: maxY + padY};
+    }
+
+    // map real coords -> canvas coords
+    // convert image-space coords (image pixels) -> canvas pixel coords
+    function imageToCanvasCoords(ix, iy) {
+        const o = canvas._imgOffset || { dx:0, dy:0, dw:canvas.width, dh:canvas.height };
+        const cx = o.dx + (ix / mapImage.width) * o.dw;
+        const cy = o.dy + (iy / mapImage.height) * o.dh;
+        return { cx, cy };
+}
+
+    // convert canvas pixel -> image-space coords
+    function canvasToImageCoords(px, py) {
+        const o = canvas._imgOffset || { dx:0, dy:0, dw:canvas.width, dh:canvas.height };
+        const ix = (px - o.dx) * (mapImage.width / o.dw);
+        const iy = (py - o.dy) * (mapImage.height / o.dh);
+        return { ix, iy };
+}
+
+
+    // draw all nodes
+    function drawAllNodes(highlightPathIds = []) {
+    // draw base first (image)
+    drawBase();
+
+    // draw edges later if you have edges (optional)
+    // draw nodes
+    locations.forEach(loc => {
+        const { cx, cy } = imageToCanvasCoords(loc.x, loc.y);
+        ctx.beginPath();
+        ctx.fillStyle = highlightPathIds.includes(loc.id) ? '#1f2937' : '#ffffff';
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 1;
+        ctx.arc(cx, cy, 7, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '12px system-ui, sans-serif';
+        ctx.fillStyle = '#111827';
+        ctx.fillText(loc.name, cx + 10, cy + 4);
+    });
+}
+
+
+    // draw a path (array of nodes objects)
+    function drawPath(path) {
+        if (!path || path.length === 0) return;
+        // draw baseline nodes first
+        const pathIds = path.map(p => p.id);
+        drawAllNodes(pathIds);
+
+        // draw polyline
+        ctx.beginPath();
+        for (let i=0;i<path.length;i++) {
+            const p = path[i];
+            const {cx, cy} = imageToCanvasCoords(p.x, p.y);
+            if (i===0) ctx.moveTo(cx, cy);
+            else ctx.lineTo(cx, cy);
+        }
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        // draw start and end markers
+        const start = path[0], end = path[path.length-1];
+        const s = imageToCanvasCoords(start.x, start.y);
+        const e = imageToCanvasCoords(end.x, end.y);
+
+        // start - green
+        ctx.beginPath();
+        ctx.fillStyle = '#10b981';
+        ctx.arc(s.cx, s.cy, 9, 0, Math.PI*2);
+        ctx.fill();
+
+        // end - red
+        ctx.beginPath();
+        ctx.fillStyle = '#ef4444';
+        ctx.arc(e.cx, e.cy, 9, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    // 1. Load locations for dropdowns
+    fetch('/maps/locations/')
+        .then(res => {
+            if (!res.ok) throw new Error('Locations API returned ' + res.status);
+            return res.json();
+        })
+        .then(data => {
+            locations = data.locations || [];
+            // convert x,y to numbers and fill map
+            locations.forEach(l => {
+                l.x = parseFloat(l.x) || 0;
+                l.y = parseFloat(l.y) || 0;
+                locationsMap[l.id] = l;
+            });
+            bounds = computeBounds();
+
+            locations.forEach(loc => {
+                const opt1 = document.createElement('option');
+                opt1.value = loc.id;
+                opt1.textContent = loc.name;
+                startSelect.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = loc.id;
+                opt2.textContent = loc.name;
+                endSelect.appendChild(opt2);
+            });
+
+            // initial draw
+            drawAllNodes();
+        })
+        .catch(err => {
+            console.error('Error loading locations:', err);
+            routeInfoDiv.innerHTML = '<p style="color: #b91c1c;">Error loading locations.</p>';
+        });
+
+    // 2. Handle "Show Route" click
+    if (showRouteBtn) {
+        showRouteBtn.addEventListener('click', function() {
+            const startId = startSelect.value;
+            const endId = endSelect.value;
+
+            if (!startId || !endId) {
+                routeInfoDiv.innerHTML = '<p>Please select both start and destination.</p>';
+                return;
+            }
+
+            routeInfoDiv.innerHTML = '<p>Calculating shortest route...</p>';
+
+            fetch(`/maps/route/?start=${startId}&end=${endId}`)
+                .then(res => {
+                    if (!res.ok) return res.json().then(j => { throw new Error(j.error || 'Route API error')});
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        routeInfoDiv.innerHTML = `<p style="color:#b91c1c;">${data.error}</p>`;
+                        return;
+                    }
+
+                    const path = data.path || [];
+                    const totalDistance = data.total_distance;
+
+                    // Show textual route steps
+                    const stepsHtml = path.map((node, index) => {
+                        if (index === 0) return `Start: <strong>${node.name}</strong>`;
+                        if (index === path.length - 1) return `Destination: <strong>${node.name}</strong>`;
+                        return `→ ${node.name}`;
+                    }).join('<br>');
+
+                    routeInfoDiv.innerHTML = `
+                        <p><strong>Route:</strong></p>
+                        <p>${stepsHtml}</p>
+                        <p style="margin-top: 0.5rem;">Total distance: <strong>${totalDistance} m</strong></p>
+                    `;
+
+                    // Use returned path (which includes x,y)
+                    const resolvedPath = path.map(p => {
+                        // ensure numeric x,y
+                        return { id: p.id, name: p.name, x: parseFloat(p.x), y: parseFloat(p.y) };
+                    });
+
+                    // update bounds if needed (in case path uses nodes outside initial set)
+                    // also ensure locationsMap has entries for path nodes
+                    resolvedPath.forEach(p => {
+                        if (!locationsMap[p.id]) {
+                            locationsMap[p.id] = p;
+                            locations.push(p);
+                        }
+                    });
+                    bounds = computeBounds();
+
+                    // draw
+                    drawPath(resolvedPath);
+                })
+                .catch(err => {
+                    console.error('Error fetching route:', err);
+                    routeInfoDiv.innerHTML = '<p>Something went wrong while calculating route.</p>';
+                });
+        });
+    }
+});
+
+/* ==== CONFIG ==== */
+const MAP_IMAGE_URL = "{% static 'images/campus_indoor_map.png' %}"; // update if needed
+const LOCATIONS_API = "/maps/locations/";   // GET
+const EDGES_API = "/maps/edges/";           // GET (we'll implement)
+const ADD_NODE_API = "/maps/add_node/";     // POST (we'll implement)
+const ADD_EDGE_API = "/maps/add_edge/";     // POST (we'll implement)
+
+/* ==== UTIL: CSRF for POSTs (only if you want to use CSRF) ==== */
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+const csrftoken = getCookie('csrftoken');
+
+/* ==== CANVAS SETUP ==== */
+const canvas = document.getElementById('indoor-map');
+const ctx = canvas.getContext('2d');
+
+let mapImage = new Image();
+mapImage.src = MAP_IMAGE_URL;
+mapImage.onload = () => {
+  drawBase();
+  loadGraphAndDraw();
+};
+
+/* state */
+let devMode = false;
+let nodes = [];      // {id, name, code, x, y, floor}
+let edges = [];      // {id, from_id, to_id, distance}
+let selection = [];  // node ids selected for creating edge or start/dest
+
+/* controls */
+document.getElementById('dev-toggle').addEventListener('click', () => {
+  devMode = !devMode;
+  document.getElementById('dev-toggle').textContent = devMode ? 'Disable Dev Mode' : 'Enable Dev Mode';
+});
+
+document.getElementById('clear-temp').addEventListener('click', () => {
+  selection = [];
+  drawBase();
+  drawGraph();
+});
+
+
+/* helper: redraw background */
+function drawBase() {
+  // fill white then draw image
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // draw scaled image to fill canvas while preserving aspect ratio
+  const imgRatio = mapImage.width / mapImage.height;
+  const canvasRatio = canvas.width / canvas.height;
+  let dw, dh, dx, dy;
+  if (imgRatio > canvasRatio) {
+    dw = canvas.width;
+    dh = canvas.width / imgRatio;
+    dx = 0;
+    dy = (canvas.height - dh) / 2;
+  } else {
+    dh = canvas.height;
+    dw = canvas.height * imgRatio;
+    dy = 0;
+    dx = (canvas.width - dw) / 2;
+  }
+  ctx.drawImage(mapImage, dx, dy, dw, dh);
+  // store transform info so clicks convert to image coords
+  canvas._imgOffset = {dx,dy,dw,dh};
+}
+
+/* convert canvas pixel -> image-space coords (0..imageWidth) or keep as image-proportional coords */
+function canvasToImageCoords(px, py) {
+  const o = canvas._imgOffset || {dx:0,dy:0,dw:canvas.width,dh:canvas.height};
+  const ix = (px - o.dx) * (mapImage.width / o.dw);
+  const iy = (py - o.dy) * (mapImage.height / o.dh);
+  return {ix, iy};
+}
+
+/* convert image coords -> canvas pixel */
+function imageToCanvasCoords(ix, iy) {
+  const o = canvas._imgOffset || {dx:0,dy:0,dw:canvas.width,dh:canvas.height};
+  const cx = o.dx + (ix / mapImage.width) * o.dw;
+  const cy = o.dy + (iy / mapImage.height) * o.dh;
+  return {cx, cy};
+}
+
+
+/* draw nodes and edges */
+function drawGraph() {
+  drawBase();
+
+  ctx.lineCap = 'round';
+  // 🔵 EDGE DRAWING (conditional)
+  if (devMode) {
+    // DEV MODE → draw ALL edges
+    ctx.lineWidth = 4;
+    edges.forEach(e => {
+      const a = nodes.find(n => n.id === e.from_id);
+      const b = nodes.find(n => n.id === e.to_id);
+      if (!a || !b) return;
+
+      const pa = imageToCanvasCoords(a.x, a.y);
+      const pb = imageToCanvasCoords(b.x, b.y);
+
+      ctx.beginPath();
+      ctx.strokeStyle = '#c7ddff';
+      ctx.moveTo(pa.cx, pa.cy);
+      ctx.lineTo(pb.cx, pb.cy);
+      ctx.stroke();
+    });
+  } else {
+    // USER MODE → draw ONLY shortest path
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#2563eb';
+
+    ctx.beginPath();
+    shortestPathEdges.forEach((e, index) => {
+      const a = nodes.find(n => n.id === e.from_id);
+      const b = nodes.find(n => n.id === e.to_id);
+      if (!a || !b) return;
+
+      const pa = imageToCanvasCoords(a.x, a.y);
+      const pb = imageToCanvasCoords(b.x, b.y);
+
+      if (index === 0) ctx.moveTo(pa.cx, pa.cy);
+      ctx.lineTo(pb.cx, pb.cy);
+    });
+    ctx.stroke();
+  }
+  // nodes
+  nodes.forEach(n => {
+    const p = imageToCanvasCoords(n.x, n.y);
+    // circle
+    ctx.beginPath();
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1;
+    ctx.arc(p.cx, p.cy, 7, 0, Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+
+    // label
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = '#0f172a';
+    ctx.fillText(n.name, p.cx + 10, p.cy + 4);
+  });
+
+  // highlight selection
+  selection.forEach(selId => {
+    const n = nodes.find(x=>x.id===selId);
+    if (!n) return;
+    const p = imageToCanvasCoords(n.x, n.y);
+    ctx.beginPath();
+    ctx.fillStyle = '#2563eb';
+    ctx.arc(p.cx, p.cy, 9, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+/* combined redraw */
+function loadGraphAndDraw() {
+  Promise.all([
+    fetch(LOCATIONS_API).then(r=>r.json()).then(j=> j.locations || []),
+    fetch(EDGES_API).then(r=>r.json()).then(j=> j.edges || [])
+  ]).then(([locs, eds]) => {
+    nodes = locs.map(l => ({ id: l.id, name: l.name, code: l.code, x: parseFloat(l.x), y: parseFloat(l.y), floor: l.floor }));
+    edges = eds.map(e => ({ id: e.id, from_id: e.from_location, to_id: e.to_location, distance: e.distance }));
+    drawBase();
+    drawGraph();
+  }).catch(err => {
+    console.error('Error loading graph:', err);
+  });
+}
+
+/* click handler for dev mode and selection */
+canvas.addEventListener('click', (evt) => {
+  const rect = canvas.getBoundingClientRect();
+  const px = evt.clientX - rect.left;
+  const py = evt.clientY - rect.top;
+  const {ix, iy} = canvasToImageCoords(px, py);
+
+  if (!devMode) {
+    // normal mode: choose nearest node as start/dest if within radius
+    const nearest = findNearestNode(ix, iy, 20); // threshold in image px
+    if (nearest) {
+      // toggle selection
+      if (!selection.includes(nearest.id)) selection.push(nearest.id);
+      else selection = selection.filter(x=>x!==nearest.id);
+      drawBase();
+      drawGraph();
+      return;
+    } else {
+      // click on empty area - you could pan/zoom here later
+      return;
+    }
+  }
+
+  // DEV MODE: SHIFT+click to create edge between two existing nodes
+  if (evt.shiftKey) {
+    const nearest = findNearestNode(ix, iy, 25);
+    if (!nearest) {
+      alert('Shift+click requires clicking near an existing node.');
+      return;
+    }
+    // add to selection for edge creation
+    if (!selection.includes(nearest.id)) selection.push(nearest.id);
+    if (selection.length === 2) {
+      // show confirm and POST edge
+      const [aId, bId] = selection;
+      const dist = Math.hypot(
+        (nodes.find(n=>n.id===aId).x - nodes.find(n=>n.id===bId).x),
+        (nodes.find(n=>n.id===aId).y - nodes.find(n=>n.id===bId).y)
+      );
+      if (!confirm(`Create edge between "${nodes.find(n=>n.id===aId).name}" and "${nodes.find(n=>n.id===bId).name}"?\nDistance ≈ ${Math.round(dist)}`)) {
+        selection = [];
+        drawBase();
+        drawGraph();
+        return;
+      }
+      // POST edge
+      fetch(ADD_EDGE_API, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+        body: JSON.stringify({from_id: aId, to_id: bId, distance: dist})
+      }).then(r=>r.json()).then(j=>{
+        if (j.success) {
+          alert('Edge created');
+          selection = [];
+          loadGraphAndDraw();
+        } else {
+          alert('Edge creation failed: ' + (j.error||JSON.stringify(j)));
+        }
+      }).catch(e=>{
+        console.error(e);
+        alert('Edge creation request failed.');
+      });
+    } else {
+      drawBase();
+      drawGraph();
+    }
+    return;
+  }
+
+  // DEV MODE (simple click): create new node at clicked position
+  const nodeName = prompt('Enter node name (e.g. "Library Entrance")');
+  if (!nodeName) return;
+  const nodeCode = prompt('Enter node code (short, e.g. LIB_ENT)') || '';
+  // POST to backend to create node (image-space coordinates used)
+  fetch(ADD_NODE_API, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+    body: JSON.stringify({ name: nodeName, code: nodeCode, x: ix, y: iy, floor: '' })
+  }).then(r=>r.json()).then(data=>{
+    if (data.success) {
+      nodes.push({ id: data.id, name: nodeName, code: nodeCode, x: ix, y: iy, floor: '' });
+      drawBase();
+      drawGraph();
+      alert('Node created with id: ' + data.id);
+    } else {
+      alert('Create node failed: ' + (data.error||JSON.stringify(data)));
+    }
+  }).catch(err => {
+    console.error('Error creating node:', err);
+    alert('Request to create node failed.');
+  });
+});
+
+/* find nearest node by image-space distance threshold */
+function findNearestNode(ix, iy, threshold) {
+  let best = null;
+  let bestD = Infinity;
+  nodes.forEach(n => {
+    const d = Math.hypot(n.x - ix, n.y - iy);
+    if (d < bestD) { bestD = d; best = n; }
+  });
+  return (bestD <= threshold) ? best : null;
+}
+
+document.getElementById("ai-ask-btn").addEventListener("click", () => {
+  const q = document.getElementById("ai-input").value;
+
+  fetch(`/assistant/ask/?q=${encodeURIComponent(q)}`)
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("ai-answer").innerText = data.answer;
+
+        if (data.destination_id) {
+            endSelect.value = data.destination_id;
+            showRouteBtn.click(); // auto draw route
+        }
+    });
+});
+const savedLocation = localStorage.getItem("current_location");
+
+if (savedLocation) {
+  const location = JSON.parse(savedLocation);
+
+  drawUserMarker(location.x, location.y);
+  setStartLocation(location.id);
+
+  localStorage.removeItem("current_location");
+}
+
+
+
+</script>
+
+{% endblock %}

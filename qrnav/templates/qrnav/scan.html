@@ -1,0 +1,120 @@
+{% extends "core/base.html" %}
+{% block content %}
+
+<section class="scanner-wrapper">
+
+    <!-- Page Header -->
+    <div class="scanner-header">
+        <h1>QR Location Scanner</h1>
+        <p>
+            Scan a campus QR node to automatically detect your
+            current building location.
+        </p>
+    </div>
+
+    <!-- Scanner Card -->
+    <div class="scanner-container">
+        <div class="scanner-card">
+
+            <div class="scanner-top">
+                <h2>Scan QR Code</h2>
+                <span id="scan-status" class="status-indicator">
+                    Initializing camera...
+                </span>
+            </div>
+
+            <div class="scanner-body">
+                <div id="qr-reader"></div>
+            </div>
+
+        </div>
+    </div>
+
+</section>
+
+
+<!-- Load QR Library -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const statusText = document.getElementById("scan-status");
+    const qrScanner = new Html5Qrcode("qr-reader");
+
+    function updateStatus(message, type = "info") {
+        statusText.innerText = message;
+        statusText.className = "status-indicator " + type;
+    }
+
+    Html5Qrcode.getCameras()
+        .then(devices => {
+
+            if (!devices || devices.length === 0) {
+                updateStatus("No camera detected.", "error");
+                return;
+            }
+
+            const cameraId = devices[0].id;
+            updateStatus("Camera ready. Point at QR code.", "ready");
+
+            qrScanner.start(
+                cameraId,
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                async (decodedText) => {
+
+                    updateStatus("QR detected. Verifying location...", "processing");
+                    await qrScanner.stop();
+
+                    const cleanedQR = decodedText.trim().toUpperCase();
+
+                    try {
+                        const response = await fetch("/maps/api/resolve-location/", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": "{{ csrf_token }}"
+                            },
+                            body: JSON.stringify({ qr_data: cleanedQR })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.location) {
+
+                            localStorage.setItem(
+                                "current_location",
+                                JSON.stringify(data.location)
+                            );
+
+                            updateStatus("Location detected. Redirecting...", "success");
+
+                            setTimeout(() => {
+                                window.location.href = "/maps/";
+                            }, 800);
+
+                        } else {
+                            updateStatus("Invalid QR code. Try again.", "error");
+                            qrScanner.start(cameraId, { fps: 10, qrbox: 250 }, arguments.callee);
+                        }
+
+                    } catch (error) {
+                        console.error(error);
+                        updateStatus("Server error. Please retry.", "error");
+                    }
+                }
+            );
+
+        })
+        .catch(err => {
+            console.error(err);
+            updateStatus("Camera access denied.", "error");
+        });
+
+});
+</script>
+
+{% endblock %}

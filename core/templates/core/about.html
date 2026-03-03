@@ -1,0 +1,123 @@
+{% extends 'core/base.html' %}
+{% block content %}
+
+<section class="about-wrapper" aria-label="About the Smart Campus Navigation System">
+
+  <!-- Hero Section -->
+  <div class="about-hero">
+    <h1>Smart Campus Indoor Navigation System</h1>
+    <p class="hero-subtitle">
+      Intelligent indoor navigation powered by QR positioning and AI assistance.
+    </p>
+  </div>
+
+  <!-- Main Content Container -->
+  <div class="about-container">
+
+    <!-- Overview Block -->
+    <article class="about-block" aria-labelledby="overview-heading">
+      <div class="block-header">
+        <span class="block-label">Overview</span>
+        <h2 id="overview-heading">Designed for Seamless Campus Navigation</h2>
+      </div>
+
+      <p class="block-text">
+        NAVIQ is an intelligent indoor navigation platform built to simplify
+        campus movement for students and visitors. By combining graph-based
+        pathfinding algorithms, QR-based positioning, and Retrieval-Augmented
+        AI assistance, the system delivers precise directions and contextual
+        information in real time.
+      </p>
+
+      <ul class="feature-tags" aria-label="Key features">
+        <li>Indoor Routing</li>
+        <li>Shortest Path Engine</li>
+        <li>QR Smart Positioning</li>
+        <li>AI Knowledge Assistant</li>
+        <li>Multi-Floor Support</li>
+      </ul>
+    </article>
+
+    <!-- Capabilities Block -->
+    <article class="about-block" aria-labelledby="capabilities-heading">
+      <div class="block-header">
+        <span class="block-label">Capabilities</span>
+        <h2 id="capabilities-heading">Core Functional Modules</h2>
+      </div>
+
+      <div class="capability-grid">
+        <div class="capability-item">
+          <h3>Smart Route Optimization</h3>
+          <p>
+            Implements Dijkstra’s algorithm to compute optimal indoor
+            navigation paths using corridor connectivity graphs.
+          </p>
+        </div>
+        <div class="capability-item">
+          <h3>QR-Based Position Detection</h3>
+          <p>
+            Enables instant location mapping through strategically
+            deployed QR nodes across buildings.
+          </p>
+        </div>
+        <div class="capability-item">
+          <h3>Interactive Map Interface</h3>
+          <p>
+            Dynamic map rendering with real-time path visualization
+            and floor transitions.
+          </p>
+        </div>
+        <div class="capability-item">
+          <h3>RAG-Powered AI Assistant</h3>
+          <p>
+            Context-aware campus query resolution using a vector-based
+            retrieval system connected to structured knowledge documents.
+          </p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Architecture Block -->
+    <article class="about-block architecture-section" aria-labelledby="architecture-heading">
+      <div class="block-header">
+        <span class="block-label">Architecture</span>
+        <h2 id="architecture-heading">Technical Implementation Stack</h2>
+      </div>
+
+      <div class="architecture-flow">
+        <div class="arch-layer">
+          <h4>Database Layer</h4>
+          <p>
+            MySQL stores node coordinates, pathways, adjacency
+            relationships, and structured campus metadata.
+          </p>
+        </div>
+        <div class="arch-layer">
+          <h4>Backend Engine</h4>
+          <p>
+            Django manages API endpoints, routing logic,
+            and shortest-path computation engine.
+          </p>
+        </div>
+        <div class="arch-layer">
+          <h4>Frontend Interface</h4>
+          <p>
+            Responsive UI rendering interactive campus maps
+            and navigation flows.
+          </p>
+        </div>
+        <div class="arch-layer">
+          <h4>AI Intelligence Layer</h4>
+          <p>
+            Retrieval-Augmented Generation model integrated
+            with campus documentation for contextual Q&A.
+          </p>
+        </div>
+      </div>
+    </article>
+
+  </div> <!-- .about-container -->
+
+</section>
+
+{% endblock %}

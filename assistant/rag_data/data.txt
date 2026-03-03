@@ -1,0 +1,23 @@
+LIBRARY: The Library is in the left wing, next to the Seminar Hall. You can reach it from the central Atrium.
+
+CAFETERIA: The Cafeteria is in the top-right wing of the campus, here you can find all beverages like coffee,tea etc and eatables.
+
+BOYS HOSTEL: The Boys Hostel is in the left wing near the AutoCAD Lab.
+
+GIRLS HOSTEL: The Girls Hostel is in the top-left corner of the campus.
+
+WASHROOM: There are three washrooms one located next to the Cafeteria, one located between the Atrium and Auditorium, one near the right-side entry close to Admission Office
+
+STAIR AND LIFT: THEY ARE IN ATRIUM AND OTHER IS NEAR AUDITORIUM.
+
+SEMINAR_HALL: Located in the left wing between the Lab and the Library.
+
+LOUNGE: Located between the Girls Hostel and CL Labs.
+
+CL_LABS: Computer labs CL1 and CL2 located near the Lounge and Boys Hostel.
+
+AUTOCAD_LAB: Located near the Seminar Hall towards the Girls Hostel.
+
+PITS_CAFE: Located in the right side of the Atrium leading towards the Auditorium.
+
+AUDITORIUM: : Enter the main ATRIUM and walk towards the right. Go past the PITS CAFE, and the AUDITORIUM is directly ahead.

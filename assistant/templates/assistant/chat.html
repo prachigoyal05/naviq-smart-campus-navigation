@@ -1,0 +1,74 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{% static 'css/assistant.css' %}">
+
+<div class="assistant-container">
+
+  <div class="assistant-header">
+    <img src="{% static 'images/ai-bot.png' %}" class="bot-icon">
+    <h1>AI Campus Assistant</h1>
+    <p>Ask me anything about campus navigation and facilities</p>
+  </div>
+
+  <div class="assistant-layout">
+    
+    <!-- Chat -->
+    <div class="chat-box" id="chat-box">
+      <div class="bot-msg">
+        Hello! I'm your Smart Campus Assistant. How can I help?
+      </div>
+    </div>
+
+    <!-- Quick Questions -->
+    <div class="quick-panel">
+      <h3>Quick Questions</h3>
+      <button onclick="askQuick('Where is the Library?')">Where is the Library?</button>
+      <button onclick="askQuick('Where is the Cafeteria?')">Where is the Cafeteria?</button>
+      <button onclick="askQuick('Where are the washrooms?')">Where are the washrooms?</button>
+      <button onclick="askQuick('How do I reach the Seminar Hall?')">How to reach Seminar Hall?</button>
+    </div>
+
+  </div>
+
+  <div class="chat-input">
+    <input id="ai-input" placeholder="Ask NaviQ..." />
+    <button onclick="askAI()">Ask</button>
+  </div>
+
+</div>
+
+<script>
+function addMessage(text, cls){
+  const box = document.getElementById("chat-box");
+  const div = document.createElement("div");
+  div.className = cls;
+  div.innerText = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function askAI(){
+  const input = document.getElementById("ai-input");
+  const q = input.value;
+  if(!q) return;
+
+  addMessage(q, "user-msg");
+  input.value = "";
+
+  fetch(`/assistant/ask/?q=${encodeURIComponent(q)}`)
+    .then(r => r.json())
+    .then(data => {
+      addMessage(data.answer, "bot-msg");
+    });
+}
+
+function askQuick(q){
+  document.getElementById("ai-input").value = q;
+  askAI();
+}
+</script>
+
+{% endblock %}
