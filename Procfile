@@ -1,0 +1,1 @@
+web: gunicorn naviq.wsgi:application
